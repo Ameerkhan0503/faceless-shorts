@@ -1,0 +1,90 @@
+name: Render Videos
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'faceless-shorts/**'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Edge and FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y microsoft-edge-stable ffmpeg
+
+      - name: Install deps (Video 1 - 3D)
+        working-directory: faceless-shorts/history-story-formula
+        run: npm ci
+
+      - name: Install deps (Videos 2-4 - 2D)
+        run: |
+          for d in engineering-bridge-collapse tech-ai-deep-dive finance-tax-deduction; do
+            cd faceless-shorts/$d && npm ci && cd ../..
+          done
+
+      - name: Render Video 1 (3D) - History
+        working-directory: faceless-shorts/history-story-formula
+        env:
+          CHROME: /usr/bin/microsoft-edge
+          SOFTWARE_GL: 1
+          QS: '&res=0.6&aa=0&shadow=1024'
+          FPS: 24
+        run: |
+          node tools/capture.mjs check
+          node tools/capture.mjs cues
+          python3 tools/mix.py .
+          node tools/capture.mjs video renders/history-story-formula.mp4
+
+      - name: Render Video 2 (2D) - Engineering
+        working-directory: faceless-shorts/engineering-bridge-collapse
+        env:
+          CHROME: /usr/bin/microsoft-edge
+        run: |
+          node tools/capture.mjs check
+          node tools/capture.mjs cues
+          python3 tools/mix.py .
+          node tools/capture.mjs video renders/engineering-bridge-collapse.mp4
+
+      - name: Render Video 3 (2D) - Tech/AI
+        working-directory: faceless-shorts/tech-ai-deep-dive
+        env:
+          CHROME: /usr/bin/microsoft-edge
+        run: |
+          node tools/capture.mjs check
+          node tools/capture.mjs cues
+          python3 tools/mix.py .
+          node tools/capture.mjs video renders/tech-ai-deep-dive.mp4
+
+      - name: Render Video 4 (2D) - Finance
+        working-directory: faceless-shorts/finance-tax-deduction
+        env:
+          CHROME: /usr/bin/microsoft-edge
+        run: |
+          node tools/capture.mjs check
+          node tools/capture.mjs cues
+          python3 tools/mix.py .
+          node tools/capture.mjs video renders/finance-tax-deduction.mp4
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-videos
+          path: |
+            faceless-shorts/*/renders/*.mp4
+          retention-days: 7
